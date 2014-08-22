@@ -35,7 +35,7 @@ class InSave(object):
             _log.debug('Already downloaded, skipping')
             self._skipped += 1
             return False
-        _log.info('Downloading to %s', name)
+        _log.info('Downloading to %s', os.path.basename(name))
         try:
             os.makedirs(os.path.dirname(name))
         except OSError:
