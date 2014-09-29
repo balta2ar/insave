@@ -17,13 +17,14 @@ class InSave(object):
         self._user_id = user_id
         self._downloaded = 0
         self._skipped = 0
+        self._total = 0
         self._download = download
         self._skip = skip
         self._fetch = fetch
 
     def show_stats(self):
         _log.info('Saved: %d, skipped: %d, total: %d',
-                  self._downloaded, self._skipped, self._downloaded + self._skipped)
+                  self._downloaded, self._skipped, self._total)
 
     @staticmethod
     def _name(media):
@@ -35,6 +36,7 @@ class InSave(object):
         if os.path.exists(name):
             _log.debug('Already downloaded, skipping')
             self._skipped += 1
+            self._total += 1
             return False
         _log.info('Downloading to %s', os.path.basename(name))
         try:
@@ -46,6 +48,7 @@ class InSave(object):
             f.write(r.content)
         self._downloaded += 1
         self._skipped = 0
+        self._total += 1
         return True
 
     @property
