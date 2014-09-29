@@ -45,7 +45,7 @@ class InSave(object):
         with open(name, 'wb') as f:
             f.write(r.content)
         self._downloaded += 1
-        self._skiped = 0
+        self._skipped = 0
         return True
 
     @property
