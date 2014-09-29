@@ -12,17 +12,18 @@ _log = logging.getLogger('insave')
 
 
 class InSave(object):
-    MAX_DOWNLOADS = 100
-
-    def __init__(self, api, user_id):
+    def __init__(self, api, user_id, download, skip, fetch):
         self._api = api
         self._user_id = user_id
-        self._saved = 0
+        self._downloaded = 0
         self._skipped = 0
+        self._download = download
+        self._skip = skip
+        self._fetch = fetch
 
     def show_stats(self):
         _log.info('Saved: %d, skipped: %d, total: %d',
-                  self._saved, self._skipped, self._saved + self._skipped)
+                  self._downloaded, self._skipped, self._downloaded + self._skipped)
 
     @staticmethod
     def _name(media):
@@ -43,19 +44,23 @@ class InSave(object):
         r = requests.get(url)
         with open(name, 'wb') as f:
             f.write(r.content)
-        self._saved += 1
+        self._downloaded += 1
+        self._skiped = 0
         return True
 
     @property
     def _within_limits(self):
-        return (self._saved < InSave.MAX_DOWNLOADS and
-                self._skipped < InSave.MAX_DOWNLOADS)
+        return (self._downloaded < self._download and
+                self._skipped < self._skip)
 
-    def save(self, path, count):
-        recent, next_ = self._api.user_media_feed(user_id=self._user_id, count=count)
-        while (next_ or recent) and self._within_limits:
+    def save(self, path):
+        recent, next_ = self._api.user_media_feed(user_id=self._user_id,
+                                                  count=self._fetch)
+        while (next_ or recent):
             _log.debug('Received %d medias', len(recent))
             for media in recent:
+                if not self._within_limits:
+                    return
                 if media.type != 'image':
                     _log.debug('Skipping non-image')
                     continue
@@ -85,7 +90,9 @@ def parse_args():
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-p', '--path', default='media', help='path to saved media')
     parser.add_argument('-u', '--userid', default='46764821', help='user id (not name)')
-    parser.add_argument('-c', '--count', default=10, type=int, help='number of recent medias to save')
+    parser.add_argument('-d', '--download', default=100, type=int, help='number of recent medias to download before termination')
+    parser.add_argument('-s', '--skip', default=100, type=int, help='number of recent medias to skip CONTINUOUSLY before termination')
+    parser.add_argument('-f', '--fetch', default=100, type=int, help='number of medias to ask in each API request')
     parser.add_argument('-q', '--quiet', action='store_true', default=False, help='do not print to stdout')
     parser.add_argument('-l', '--log', default=None, help='log to file')
     parser.add_argument('-t', '--token', default='token', help='path to access token file')
@@ -98,11 +105,12 @@ def parse_args():
 def main():
     args = parse_args()
 
-    _log.info('Saving %d of userid %s feed medias to %s', args.count, args.userid, args.path)
+    _log.info('Saving %d (skip %d, fetch %d) of userid %s feed medias to %s',
+              args.download, args.skip, args.fetch, args.userid, args.path)
     access_token = open(args.token).read().strip()
     api = InstagramAPI(access_token=access_token)
-    saver = InSave(api, args.userid)
-    saver.save(args.path, args.count)
+    saver = InSave(api, args.userid, args.download, args.skip, args.fetch)
+    saver.save(args.path)
     saver.show_stats()
 
 
