@@ -1,0 +1,18 @@
+/random?n=3
+Show n random pictures.
+
+/similar/<id>?n=3
+Show n pictures similar to <id> picture.
+
+We need resolutions:
+filename -> postid -> URL
+id -> feature
+id -> filename
+
+Data structures:
+filelist (filename per line)
+npy distance matrix (squared)
+<id> - position in filelist or row in distance matrix
+
+Scripts:
+extract.py --filelist <filename> --output <filename> --extractor <feature_type>
