@@ -16,3 +16,96 @@ npy distance matrix (squared)
 
 Scripts:
 extract.py --filelist <filename> --output <filename> --extractor <feature_type>
+
+Planned features:
+[_] show original images, just browser the feed locally
+[_] show visually similar images
+    [_] use haar feature extractor
+    [_] use that similarity algorithm together with elasticsearch
+[_] annotate (tag) images
+    [ ] provide search by these tags (elasticsearch)
+[_] instroduce image clustering, research best number of clusters
+[_] make sure that posts are stored as IDs
+    [_] no need to carry over all images to a remote server
+    [_] implement convertion ID -> URL, URL -> ID
+    [_] store IDs in a file so that it can be deployed to a remote server
+
+Next page:
+
+https://www.instagram.com/query/
+
+q:ig_me() {
+  feed {
+    media.after(KKkBARAAAAIoABgAEAAIAAgACAAIAP-___7_-f_e____________3u_-____e__________-3________7_____v__7______3______y_______f__y3zXtfq5bXvq_a-_v_3_6_____vdu______f__4___vv__r7_27-_33_______3____-____v_vr__f_v___v_9_-_-___9__7__19VTsrWoKMFwBABbs3tikolUA, 12) {
+      nodes {
+        id,
+        caption,
+        code,
+        comments.last(4) {
+          count,
+          nodes {
+            id,
+            created_at,
+            text,
+            user {
+              id,
+              profile_pic_url,
+              username
+            }
+          },
+          page_info
+        },
+        date,
+        dimensions {
+          height,
+          width
+        },
+        display_src,
+        is_video,
+        likes {
+          count,
+          nodes {
+            user {
+              id,
+              profile_pic_url,
+              username
+            }
+          },
+          viewer_has_liked
+        },
+        location {
+          id,
+          has_public_page,
+          name
+        },
+        owner {
+          id,
+          blocked_by_viewer,
+          followed_by_viewer,
+          full_name,
+          has_blocked_viewer,
+          is_private,
+          profile_pic_url,
+          requested_by_viewer,
+          username
+        },
+        usertags {
+          nodes {
+            user {
+              username
+            },
+            x,
+            y
+          }
+        },
+        video_url,
+        video_views
+      },
+      page_info
+    }
+  },
+  id,
+  profile_pic_url,
+  username
+}
+ref:feed::show
