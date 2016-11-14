@@ -1,0 +1,247 @@
+"ig_me()
+ {
+  feed {
+    media.after($after, 12) {
+      nodes {
+        id,
+        attribution,
+        caption,
+        code,
+        comments.last(4) {
+          count,
+          nodes {
+            id,
+            created_at,
+            text,
+            user {
+              id,
+              profile_pic_url,
+              username
+            }
+          },
+          page_info
+        },
+        comments_disabled,
+        date,
+        dimensions {
+          height,
+          width
+        },
+        display_src,
+        is_video,
+        likes {
+          count,
+          nodes {
+            user {
+              id,
+              profile_pic_url,
+              username
+            }
+          },
+          viewer_has_liked
+        },
+        location {
+          id,
+          has_public_page,
+          name,
+          slug
+        },
+        owner {
+          id,
+          blocked_by_viewer,
+          followed_by_viewer,
+          full_name,
+          has_blocked_viewer,
+          is_private,
+          profile_pic_url,
+          requested_by_viewer,
+          username
+        },
+        usertags {
+          nodes {
+            user {
+              username
+            },
+            x,
+            y
+          }
+        },
+        video_url,
+        video_views
+      },
+      page_info
+    }
+  },
+  id,
+  profile_pic_url,
+  username}"
+
+
+
+=== old
+ig_me() {
+  feed {
+    media.after(%s, %s) {
+      nodes {
+        id,
+        caption,
+        code,
+        date,
+        dimensions {
+          height,
+          width
+        },
+        display_src,
+        is_video,
+        owner {
+          id,
+          blocked_by_viewer,
+          followed_by_viewer,
+          full_name,
+          has_blocked_viewer,
+          is_private,
+          profile_pic_url,
+          requested_by_viewer,
+          username
+        },
+        video_url,
+        video_views
+      },
+      page_info
+    }
+  },
+  id,
+  profile_pic_url,
+  username
+}
+''' % (end_cursor, 12),
+            'ref': 'feed::show'
+        }
+
+
+
+
+"ig_me()+{++feed+{++++media.after(KKABAQwAAAIoABgAEAAIAAgA____7_3_____1______P-_v_____________7-_-3_____________9______v35______9__v_v_9__vu___6Ynjdz9z-NbYn5v_3-_-_______9____-v____9___PP_83ff_72___9_-___9b_e____n___v7_v_9_3_bu_9_f_r_vr__9_-7__K4OHNWMBbov4SkjFYYEzEzODMyNDQyMjczMjgxNzAxOTMA,+12)+{++++++nodes+{++++++++id,++++++++attribution,++++++++caption,++++++++code,++++++++comments.last(4)+{++++++++++count,++++++++++nodes+{++++++++++++id,++++++++++++created_at,++++++++++++text,++++++++++++user+{++++++++++++++id,++++++++++++++profile_pic_url,++++++++++++++username++++++++++++}++++++++++},++++++++++page_info++++++++},++++++++comments_disabled,++++++++date,++++++++dimensions+{++++++++++height,++++++++++width++++++++},++++++++display_src,++++++++is_video,++++++++likes+{++++++++++count,++++++++++nodes+{++++++++++++user+{++++++++++++++id,++++++++++++++profile_pic_url,++++++++++++++username++++++++++++}++++++++++},++++++++++viewer_has_liked++++++++},++++++++location+{++++++++++id,++++++++++has_public_page,++++++++++name,++++++++++slug++++++++},++++++++owner+{++++++++++id,++++++++++blocked_by_viewer,++++++++++followed_by_viewer,++++++++++full_name,++++++++++has_blocked_viewer,++++++++++is_private,++++++++++profile_pic_url,++++++++++requested_by_viewer,++++++++++username++++++++},++++++++usertags+{++++++++++nodes+{++++++++++++user+{++++++++++++++username++++++++++++},++++++++++++x,++++++++++++y++++++++++}++++++++},++++++++video_url,++++++++video_views++++++},++++++page_info++++}++},++id,++profile_pic_url,++username}"
+
+
+
+=== more (browser) ===
+
+
+ig_me()
+ {
+  feed {
+    media.after(KKUBAQ4AAAIoABgAEAAQAAgACAC____f_______-___3_____-_v_______-___v____7___99_____9___3_____f___-__f___e___n7__8_7_XR9K_1m08wlJ5_et3v9_f______7f_f____r_____7__28__zf93_e9___9-9f__jf73___8___7-_9__7_v9t2_3d37v96___v_o_3_iiTlD4M4Fsa50bSMVhgTMTM4MzQwMTk2NTQ5NzUwNzU3NQA=,
+ 12) {
+      nodes {
+        id,
+        attribution,
+        caption,
+        code,
+        comments.last(4) {
+          count,
+          nodes {
+            id,
+            created_at,
+            text,
+            user {
+              id,
+              profile_pic_url,
+              username
+            }
+          },
+          page_info
+        },
+        comments_disabled,
+        date,
+        dimensions {
+          height,
+          width
+        },
+        display_src,
+        is_video,
+        likes {
+          count,
+          nodes {
+            user {
+              id,
+              profile_pic_url,
+              username
+            }
+          },
+          viewer_has_liked
+        },
+        location {
+          id,
+          has_public_page,
+          name,
+          slug
+        },
+        owner {
+          id,
+          blocked_by_viewer,
+          followed_by_viewer,
+          full_name,
+          has_blocked_viewer,
+          is_private,
+          profile_pic_url,
+          requested_by_viewer,
+          username
+        },
+        usertags {
+          nodes {
+            user {
+              username
+            },
+            x,
+            y
+          }
+        },
+        video_url,
+        video_views
+      },
+      page_info
+    }
+  },
+  id,
+  profile_pic_url,
+  username}
+
+
+=== old ===
+
+
+  feed {
+    media.after(%s, %s) {
+      nodes {
+        id,
+        caption,
+        code,
+        date,
+        dimensions {
+          height,
+          width
+        },
+        display_src,
+        is_video,
+        owner {
+          id,
+          blocked_by_viewer,
+          followed_by_viewer,
+          full_name,
+          has_blocked_viewer,
+          is_private,
+          profile_pic_url,
+          requested_by_viewer,
+          username
+        },
+        video_url,
+        video_views
+      },
+      page_info
+    }
+  },
+  id,
+  profile_pic_url,
+  username
+}
