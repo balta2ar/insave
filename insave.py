@@ -103,7 +103,7 @@ class InstaAPI(object):
             return None
 
         feed_page = feed['entry_data']['FeedPage'][0]
-        return self._simplify_feed(feed_page)
+        return self._simplify_feed_first(feed_page)
 
     def _get_next_page(self, end_cursor):
         data = {
@@ -202,11 +202,32 @@ class InstaAPI(object):
             _log.error(next_page.reason)
             _log.error(next_page.content)
             raise
-        return self._simplify_feed(feed)
+        return self._simplify_feed_second(feed)
 
-    def _simplify_feed(self, feed):
-        if 'feed' not in feed:
-            _log.error('feed: %s', feed)
+    def _simplify_feed_first(self, feed):
+        with open('feed-first.json', 'w') as file_:
+            json.dump(feed, file_, indent=4)
+        media = feed['graphql']['user']['edge_web_feed_timeline']
+        end_cursor = media['page_info']['end_cursor']
+
+        simple = []
+        for node in media['edges']:
+            node = node['node']
+            entry = {
+                'username': node['owner']['username'],
+                'username_id': node['owner']['id'],
+                'date': node['taken_at_timestamp'],
+                'is_video': node['is_video'],
+                'post_id': node['id'],
+                'url': node['display_url'],
+            }
+            simple.append(entry)
+
+        return simple, end_cursor
+
+    def _simplify_feed_second(self, feed):
+        with open('feed-second.json', 'w') as file_:
+            json.dump(feed, file_, indent=4)
         media = feed['feed']['media']
         end_cursor = media['page_info']['end_cursor']
 
