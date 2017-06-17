@@ -3,6 +3,7 @@ import json
 import logging
 import requests
 import argparse
+from pprint import pformat
 from netrc import netrc
 from datetime import datetime
 from os.path import join as J
@@ -10,8 +11,10 @@ from os.path import join as J
 
 
 LOGLEVEL = logging.INFO
+# LOGLEVEL = logging.DEBUG
 FORMAT = '%(asctime)s %(process)s %(name)s %(levelname)-8s - %(message)s'
 _log = logging.getLogger('insave')
+COOKIES_FILENAME = 'cookies.json'
 
 
 def enable_requests_debug():
@@ -30,12 +33,41 @@ def enable_requests_debug():
     requests_log.propagate = True
 
 
+def spit(data, filename, mode='w'):
+    with open(filename, mode) as file_:
+        file_.write(data)
+
+
+def spit_json(data, filename, mode='w'):
+    spit(json.dumps(data, indent=4), filename, mode)
+
+
+def slurp(filename):
+    with open(filename) as file_:
+        return file_.read()
+
+
+def save_cookies(session, filename):
+    #cookies = requests.utils.dict_from_cookiejar(self._session.cookies)
+    cookies = session.cookies.get_dict()
+    _log.debug('cookies %s', cookies)
+    spit_json(cookies, filename)
+
+
+def load_cookies(filename):
+    try:
+        return json.loads(slurp(filename))
+    except:
+        return {}
+
+
 class InstaAPI(object):
     SHARED_DATA_SUBSTRING = '<script type="text/javascript">window._sharedData = {'
 
     def __init__(self):
         self._logged_in = False
         self._session = requests.Session()
+        self._session.cookies.update(load_cookies(COOKIES_FILENAME))
 
     def _update_headers(self, csrftoken):
         headers = {'X-CSRFToken': csrftoken,
@@ -61,21 +93,22 @@ class InstaAPI(object):
         login_result = self._session.post(
             'https://www.instagram.com/accounts/login/ajax/',
             data=credentials)
-        # print(login_result)
         main_page_again = self._session.get('https://www.instagram.com/')
-        # print(main_page_again)
 
         if not InstaAPI.SHARED_DATA_SUBSTRING in main_page_again.content:
             _log.error('No line with sharedData in main page response (login)')
             _log.error(main_page_again.content)
             return False
 
+        _log.debug('Logged in')
+        save_cookies(self._session, 'cookies.json')
         return True
 
     def _get_first_page(self):
         main_page = self._session.get('https://www.instagram.com/')
         csrftoken = main_page.cookies['csrftoken']
         self._update_headers(csrftoken)
+        spit(main_page.content, 'main.html')
 
         if not InstaAPI.SHARED_DATA_SUBSTRING in main_page.content:
             _log.error('No line with sharedData in main page response (first page)')
@@ -102,112 +135,37 @@ class InstaAPI(object):
             _log.error(feed)
             return None
 
-        feed_page = feed['entry_data']['FeedPage'][0]
-        return self._simplify_feed_first(feed_page)
+        try:
+            feed_page = feed['entry_data']['FeedPage'][0]
+            return self._simplify_feed(
+                feed_page['graphql'], 'feed-first.json')
+        except KeyError as e:
+            _log.error('Could not get first page: %s', e)
+            _log.error('Feed: %s', pformat(feed))
 
     def _get_next_page(self, end_cursor):
-        data = {
-            'q': '''ig_me() {
-  feed {
-    media.after(%s, %s) {
-      nodes {
-        id,
-        attribution,
-        caption,
-        code,
-        comments.last(4) {
-          count,
-          nodes {
-            id,
-            created_at,
-            text,
-            user {
-              id,
-              profile_pic_url,
-              username
-            }
-          },
-          page_info
-        },
-        comments_disabled,
-        date,
-        dimensions {
-          height,
-          width
-        },
-        display_src,
-        is_video,
-        likes {
-          count,
-          nodes {
-            user {
-              id,
-              profile_pic_url,
-              username
-            }
-          },
-          viewer_has_liked
-        },
-        location {
-          id,
-          has_public_page,
-          name,
-          slug
-        },
-        owner {
-          id,
-          blocked_by_viewer,
-          followed_by_viewer,
-          full_name,
-          has_blocked_viewer,
-          is_private,
-          profile_pic_url,
-          requested_by_viewer,
-          username
-        },
-        usertags {
-          nodes {
-            user {
-              username
-            },
-            x,
-            y
-          }
-        },
-        video_url,
-        video_views
-      },
-      page_info
-    }
-  },
-  id,
-  profile_pic_url,
-  username}
-''' % (end_cursor, 12),
-            'ref': 'feed::show',
-            # 'query_id': "17854890973106267"
-        }
+        next_page = self._session.get(
+            'https://www.instagram.com/graphql/query/'
+            '?query_id=17882195038051799'
+            '&fetch_media_item_count=12'
+            '&fetch_media_item_cursor={cursor}'
+            '&fetch_comment_count=4&'
+            'fetch_like=10'.format(cursor=end_cursor))
 
-        # enable_requests_debug()
-
-        next_page = self._session.post('https://www.instagram.com/query/',
-                                       data=data)
-
-        # from ipdb import set_trace; set_trace(context=20)
         try:
             feed = json.loads(next_page.content)
         except Exception as e:
             _log.error('Cannot decode JSON for the next page')
+            _log.error(e)
+            _log.error(next_page.content)
             _log.error(next_page.status)
             _log.error(next_page.reason)
-            _log.error(next_page.content)
             raise
-        return self._simplify_feed_second(feed)
+        return self._simplify_feed(feed['data'], 'feed-second.json')
 
-    def _simplify_feed_first(self, feed):
-        with open('feed-first.json', 'w') as file_:
-            json.dump(feed, file_, indent=4)
-        media = feed['graphql']['user']['edge_web_feed_timeline']
+    def _simplify_feed(self, feed, filename):
+        spit_json(feed, filename)
+        media = feed['user']['edge_web_feed_timeline']
         end_cursor = media['page_info']['end_cursor']
 
         simple = []
@@ -220,26 +178,6 @@ class InstaAPI(object):
                 'is_video': node['is_video'],
                 'post_id': node['id'],
                 'url': node['display_url'],
-            }
-            simple.append(entry)
-
-        return simple, end_cursor
-
-    def _simplify_feed_second(self, feed):
-        with open('feed-second.json', 'w') as file_:
-            json.dump(feed, file_, indent=4)
-        media = feed['feed']['media']
-        end_cursor = media['page_info']['end_cursor']
-
-        simple = []
-        for node in media['nodes']:
-            entry = {
-                'username': node['owner']['username'],
-                'username_id': node['owner']['id'],
-                'date': node['date'],
-                'is_video': node['is_video'],
-                'post_id': node['id'],
-                'url': node['display_src'],
             }
             simple.append(entry)
 
@@ -302,8 +240,7 @@ class InSave(object):
         except OSError:
             pass  # dir already exists, probably
         r = requests.get(url)
-        with open(name, 'wb') as f:
-            f.write(r.content)
+        spit(r.content, name, 'wb')
         self._downloaded += 1
         self._skipped = 0
         self._total += 1
@@ -396,7 +333,6 @@ def testweb():
 
     lines = [line for line in main_page_again.content.splitlines()
              if '<script type="text/javascript">window._sharedData = {' in line]
-    from ipdb import set_trace; set_trace(context=20)
     unparsed_feed = ''.join(lines)
     start = unparsed_feed.find('{')
     end = unparsed_feed.rfind('}')
@@ -423,13 +359,14 @@ def testweb2():
 
 def main():
     args = parse_args()
+    #enable_requests_debug()
 
     # return testweb()
     # return testweb2()
 
     _log.info('Saving %d (skip %d, fetch %d) of userid %s feed medias to %s',
               args.download, args.skip, args.fetch, args.userid, args.path)
-    access_token = open(args.token).read().strip()
+    #access_token = open(args.token).read().strip()
     #api = InstagramAPI(access_token=access_token)
     api = InstaAPI()
     saver = InSave(api, args.userid, args.download, args.skip, args.fetch)
