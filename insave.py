@@ -306,7 +306,6 @@ def parse_args():
     parser.add_argument('-f', '--fetch', default=100, type=int, help='number of medias to ask in each API request')
     parser.add_argument('-q', '--quiet', action='store_true', default=False, help='do not print to stdout')
     parser.add_argument('-l', '--log', default=None, help='log to file')
-    parser.add_argument('-t', '--token', default='token', help='path to access token file')
     args = parser.parse_args()
     args.path = os.path.expanduser(os.path.expandvars(args.path))
     init_log(args)
