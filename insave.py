@@ -130,24 +130,24 @@ class InstaAPI(object):
         lines = [line for line in main_page.content.splitlines()
                  if InstaAPI.SHARED_DATA_SUBSTRING in line]
 
-        unparsed_feed = ''.join(lines)
-        start = unparsed_feed.find('{')
-        end = unparsed_feed.rfind('}')
-        if (start == -1) or (end == -1):
-            _log.error('Could not find start or end of JSON in sharedData (first page)')
-            _log.error(unparsed_feed)
-            return None
-
-        # preload_query = self._find_preload_query(main_page.content)
-        # if preload_query is None:
-        #     _log.error('<link rel="preload" graphql queries were not found, check main-page.html')
-        #     _log.error(main_page.content)
+        # unparsed_feed = ''.join(lines)
+        # start = unparsed_feed.find('{')
+        # end = unparsed_feed.rfind('}')
+        # if (start == -1) or (end == -1):
+        #     _log.error('Could not find start or end of JSON in sharedData (first page)')
+        #     _log.error(unparsed_feed)
         #     return None
 
-        feed = unparsed_feed[start:end+1]
+        preload_query = self._find_preload_query(main_page.content)
+        if preload_query is None:
+            _log.error('<link rel="preload" graphql queries were not found, check main-page.html')
+            _log.error(main_page.content)
+            return None
 
-        # preload_page = self._session.get('https://www.instagram.com%s' % preload_query)
-        # feed = preload_page.content
+        # feed = unparsed_feed[start:end+1]
+
+        preload_page = self._session.get('https://www.instagram.com%s' % preload_query)
+        feed = preload_page.content
 
         try:
             feed = json.loads(feed)
@@ -158,10 +158,10 @@ class InstaAPI(object):
             return None
 
         try:
-            feed_page = feed['entry_data']['FeedPage'][0]
+            # feed_page = feed['entry_data']['FeedPage'][0]
             return self._simplify_feed(
-                feed_page['graphql'], 'feed-first.json')
-                # feed['data'], 'feed-first.json')
+                # feed_page['graphql'], 'feed-first.json')
+                feed['data'], 'feed-first.json')
         except KeyError as e:
             _log.error('Could not get first page: %s', e)
             _log.error('Feed: %s', pformat(feed))
