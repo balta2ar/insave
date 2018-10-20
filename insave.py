@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import time
 import logging
 import requests
 import argparse
@@ -12,6 +13,13 @@ from urllib import quote_plus
 # from instagram.client import InstagramAPI
 
 from bs4 import BeautifulSoup
+
+
+ANTI_RATE_LIMIT_TIMEOUT = 10
+
+
+def anti_rate_limit_sleep():
+    time.sleep(ANTI_RATE_LIMIT_TIMEOUT)
 
 
 LOGLEVEL = logging.INFO
@@ -100,13 +108,17 @@ class InstaAPI(object):
         }
 
         main_page = self._session.get('https://www.instagram.com/')
+        anti_rate_limit_sleep()
         csrftoken = main_page.cookies['csrftoken']
         self._update_headers(csrftoken)
 
         login_result = self._session.post(
             'https://www.instagram.com/accounts/login/ajax/',
             data=credentials)
+        anti_rate_limit_sleep()
         main_page_again = self._session.get('https://www.instagram.com/')
+        spit(main_page_again.text, 'main-after-login.html')
+        anti_rate_limit_sleep()
 
         if not InstaAPI.SHARED_DATA_SUBSTRING in main_page_again.content:
             _log.error('No line with sharedData in main page response (login)')
@@ -136,7 +148,10 @@ class InstaAPI(object):
         # feed
         script_url = 'https://www.instagram.com%s' % scripts[0].attrs['src']
         body = self._session.get(script_url).text
-        query_hash = self._find_hashes(body)['s']
+        spit(body.encode('utf8'), 'consumer-commons.js')
+        anti_rate_limit_sleep()
+        #query_hash = self._find_hashes(body)['s']
+        query_hash = self._find_hashes(body)[0]
         return query_hash
 
     def _find_hashes(self, text):
@@ -161,9 +176,13 @@ class InstaAPI(object):
                              (len(hashes), hashes))
 
         result = {}
+        result_list = []
+        print(hashes)
         for key, value in [h.split('=') for h in hashes]:
             result[key] = value.strip('"')
-        return result
+            result_list.append(value.strip('"'))
+        # return result
+        return result_list
 
     def _find_preload_query(self, text):
         """
@@ -197,11 +216,12 @@ class InstaAPI(object):
                'query_hash=%s&variables=%s' % (self._query_hash, variables))
         _log.debug('graphql url: %s', url)
         reply = self._session.get(url)
+        anti_rate_limit_sleep()
         return reply
-
 
     def _get_first_page(self):
         main_page = self._session.get('https://www.instagram.com/')
+        anti_rate_limit_sleep()
         csrftoken = main_page.cookies['csrftoken']
         self._update_headers(csrftoken)
         spit(main_page.content, 'main.html')
@@ -250,7 +270,8 @@ class InstaAPI(object):
         try:
             #feed_page = feed['entry_data']['FeedPage'][0]
             return self._simplify_feed(
-                feed['data'], 'feed-first.json')
+                feed, 'feed-first.json')
+                # feed['data'], 'feed-first.json')
                 #feed_page['graphql'], 'feed-first.json')
                 # feed['data'], 'feed-first.json')
         except KeyError as e:
@@ -269,7 +290,8 @@ class InstaAPI(object):
             _log.error(next_page.status)
             _log.error(next_page.reason)
             raise
-        return self._simplify_feed(feed['data'], 'feed-second.json')
+        return self._simplify_feed(feed, 'feed-second.json')
+        # return self._simplify_feed(feed['data'], 'feed-second.json')
 
     # def _get_next_page(self, end_cursor):
     #     next_page = self._session.get(
@@ -313,7 +335,8 @@ class InstaAPI(object):
 
     def _simplify_feed(self, feed, filename):
         spit_json(feed, filename)
-        media = feed['user']['edge_web_feed_timeline']
+        media = feed['data']['user']['edge_web_feed_timeline']
+        # media = feed['user']['edge_web_feed_timeline']
         end_cursor = media['page_info']['end_cursor']
 
         simple = []
