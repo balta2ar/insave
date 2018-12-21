@@ -170,6 +170,7 @@ class InstaAPI(object):
         hashes = re.findall(r'\'/graphql/query/\',E="([a-z0-9]{32})"', text)
         if not hashes:
             raise ValueError('Hashes not found')
+        return hashes
 
     def _find_preload_query(self, text):
         """
