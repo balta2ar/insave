@@ -132,13 +132,16 @@ class InstaAPI(object):
 
         return True
 
-    def _find_query_hash(self, main_page):
+    def _find_scripts_with_hashes(self, main_page):
         soup = BeautifulSoup(main_page, 'html.parser')
-        scripts = soup.find_all('script')
-        scripts = [script for script in scripts
-                   if '/static/bundles/base/ConsumerCommons.js'
-                   in script.attrs.get('src', '')]
+        scripts = soup.find_all('link')
+        scripts = [script.attrs['href'] for script in scripts
+                   if '/static/bundles/metro/ConsumerCommons.js'
+                   in script.attrs.get('href', '')]
+        return scripts
 
+    def _find_query_hash(self, main_page):
+        scripts = self._find_scripts_with_hashes(main_page)
         if len(scripts) != 1:
             raise ValueError('Expected to find only one script, '
                              'found this many: %s: %s' %
@@ -146,7 +149,7 @@ class InstaAPI(object):
 
         # 's' is one of three hashes that seems to contain lookup hash for page
         # feed
-        script_url = 'https://www.instagram.com%s' % scripts[0].attrs['src']
+        script_url = 'https://www.instagram.com%s' % scripts[0]
         body = self._session.get(script_url).text
         spit(body.encode('utf8'), 'consumer-commons.js')
         anti_rate_limit_sleep()
@@ -164,25 +167,9 @@ class InstaAPI(object):
 
         Returns a dict where key={s,l,d}, value=hash
         """
-        substring = '="/graphql/query/";var'
-        index = text.index(substring)
-        if index == -1:
-            raise ValueError('"%s" substring not found' % substring)
-
-        text = text[index:index+200]
-        hashes = re.findall(r'[a-z]="[a-z0-9]{32}"', text)
-        if len(hashes) != 3:
-            raise ValueError('Expected to find 3 hashes, found: %s: %s' %
-                             (len(hashes), hashes))
-
-        result = {}
-        result_list = []
-        print(hashes)
-        for key, value in [h.split('=') for h in hashes]:
-            result[key] = value.strip('"')
-            result_list.append(value.strip('"'))
-        # return result
-        return result_list
+        hashes = re.findall(r'\'/graphql/query/\',E="([a-z0-9]{32})"', text)
+        if not hashes:
+            raise ValueError('Hashes not found')
 
     def _find_preload_query(self, text):
         """
@@ -206,11 +193,11 @@ class InstaAPI(object):
         """
         variables = {}
         if cursor is not None:
-            variables={"fetch_media_item_count": 12,
-                       "fetch_media_item_cursor": cursor,
-                       "fetch_comment_count": 4,
-                       "fetch_like": 10,
-                       "has_stories": False}
+            variables = {"fetch_media_item_count": 12,
+                         "fetch_media_item_cursor": cursor,
+                         "fetch_comment_count": 4,
+                         "fetch_like": 10,
+                         "has_stories": False}
         variables = quote_plus(json.dumps(variables))
         url = ('https://www.instagram.com/graphql/query/?'
                'query_hash=%s&variables=%s' % (self._query_hash, variables))
@@ -271,9 +258,9 @@ class InstaAPI(object):
             #feed_page = feed['entry_data']['FeedPage'][0]
             return self._simplify_feed(
                 feed, 'feed-first.json')
-                # feed['data'], 'feed-first.json')
-                #feed_page['graphql'], 'feed-first.json')
-                # feed['data'], 'feed-first.json')
+            # feed['data'], 'feed-first.json')
+            # feed_page['graphql'], 'feed-first.json')
+            # feed['data'], 'feed-first.json')
         except KeyError as e:
             _log.error('Could not get first page: %s', e)
             _log.error('Feed: %s', pformat(feed))
