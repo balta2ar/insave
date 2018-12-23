@@ -274,9 +274,9 @@ class InstaAPI(object):
         except Exception as e:
             _log.error('Cannot decode JSON for the next page')
             _log.error(e)
-            _log.error(next_page.content)
-            _log.error(next_page.status)
-            _log.error(next_page.reason)
+            _log.error(reply.content)
+            _log.error(reply.status)
+            _log.error(reply.reason)
             raise
         return self._simplify_feed(feed, 'feed-second.json')
         # return self._simplify_feed(feed['data'], 'feed-second.json')
