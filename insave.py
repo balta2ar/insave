@@ -74,7 +74,8 @@ def load_cookies(filename):
 
 
 class InstaAPI(object):
-    SHARED_DATA_SUBSTRING = '<script type="text/javascript">window._sharedData = {'
+    #SHARED_DATA_SUBSTRING = '<script type="text/javascript">window._sharedData = {'
+    SHARED_DATA_SUBSTRING = '<script type="text/javascript">window.__initialDataLoaded(window._sharedData'
     USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36'
 
     def __init__(self):
@@ -136,11 +137,17 @@ class InstaAPI(object):
         soup = BeautifulSoup(main_page, 'html.parser')
         scripts = soup.find_all('link')
         scripts = [script.attrs['href'] for script in scripts
-                   if '/static/bundles/metro/ConsumerCommons.js'
+                   # if '/static/bundles/metro/ConsumerCommons.js'
+                   # if '/static/bundles/es6/ConsumerCommons.js'
+                   #if '/static/bundles/es6/ConsumerLibCommons.js'
+                   if '/static/bundles/es6/Consumer.js'
                    in script.attrs.get('href', '')]
         return scripts
 
     def _find_query_hash(self, main_page):
+        # query_hash = self._find_preload_query(main_page)
+        # return query_hash
+
         scripts = self._find_scripts_with_hashes(main_page)
         if len(scripts) != 1:
             raise ValueError('Expected to find only one script, '
@@ -151,7 +158,7 @@ class InstaAPI(object):
         # feed
         script_url = 'https://www.instagram.com%s' % scripts[0]
         body = self._session.get(script_url).text
-        spit(body.encode('utf8'), 'consumer-commons.js')
+        spit(body.encode('utf8'), 'consumer.js')
         anti_rate_limit_sleep()
         #query_hash = self._find_hashes(body)['s']
         query_hash = self._find_hashes(body)[0]
@@ -177,11 +184,15 @@ class InstaAPI(object):
         Since ~24.02.2018 initial graphql request was put into <link preload>
         section of the first HTML page.
         """
-        results = re.findall(r'"/graphql/query/[^"]*"', text)
-        results = [s.strip('"') for s in results if 'only_stories' not in s]
-        if not results:
-            return None
+        results = re.findall(r'(?<=query_hash=)[^&"]*', text)
+        assert results, 'Expected to find at least one query_hash, found none'
         return results[0]
+
+        # results = re.findall(r'"/graphql/query/[^"]*"', text)
+        # results = [s.strip('"') for s in results if 'only_stories' not in s]
+        # if not results:
+        #     return None
+        # return results[0]
 
     def _graphql_query(self, cursor=None):
         """
@@ -207,6 +218,29 @@ class InstaAPI(object):
         anti_rate_limit_sleep()
         return reply
 
+    def _parse_shared_data(self, main_page_content):
+        if not InstaAPI.SHARED_DATA_SUBSTRING in main_page_content:
+            _log.error(
+                'No line with sharedData in main page response (first page)')
+            _log.error(main_page_content)
+            return None
+
+        lines = [line for line in main_page_content.splitlines()
+                 if InstaAPI.SHARED_DATA_SUBSTRING in line]
+
+        unparsed_feed = ''.join(lines)
+        start = unparsed_feed.find('{')
+        end = unparsed_feed.rfind('}')
+        if (start == -1) or (end == -1):
+            _log.error(
+                'Could not find start or end of JSON in sharedData (first page)')
+            _log.error(unparsed_feed)
+            return None
+
+        feed = unparsed_feed[start:end+1]
+        return feed
+        # return json.loads(feed)
+
     def _get_first_page(self):
         main_page = self._session.get('https://www.instagram.com/')
         anti_rate_limit_sleep()
@@ -215,6 +249,9 @@ class InstaAPI(object):
         spit(main_page.content, 'main.html')
 
         reply = self._graphql_query()
+        # reply = reply.json()
+
+        # reply = self._parse_shared_data(main_page.content)
 
         # if not InstaAPI.SHARED_DATA_SUBSTRING in main_page.content:
         #     _log.error(
@@ -247,8 +284,8 @@ class InstaAPI(object):
         # feed = preload_page.content
 
         try:
-            #feed = json.loads(feed)
             feed = reply.json()
+            # feed = json.loads(reply)
             spit_json(feed, 'feed-first-page.json')
         except Exception as e:
             _log.error('Could not load JSON response (first page)')
@@ -323,6 +360,8 @@ class InstaAPI(object):
 
     def _simplify_feed(self, feed, filename):
         spit_json(feed, filename)
+        #media = feed['data']['user']['feed_reels_tray']['edge_reels_tray_to_reel']
+        #media = feed['data']['user']['edge_web_feed_timeline']
         media = feed['data']['user']['edge_web_feed_timeline']
         # media = feed['user']['edge_web_feed_timeline']
         end_cursor = media['page_info']['end_cursor']
@@ -518,6 +557,20 @@ def testweb2():
     for entry in feed2:
         print(entry['username'], entry['post_id'])
     print('testweb2')
+
+
+def testweb3():
+    api = InstaAPI()
+    main_page_text = open('./20190505/main.html').read()
+    hash = api._find_query_hash(main_page_text)
+    print(hash)
+
+
+def testweb4():
+    api = InstaAPI()
+    main_page_text = open('./20190505/sharedDataLine.txt').read()
+    hash = api._parse_shared_data(main_page_text)
+    print(hash)
 
 
 def main():
