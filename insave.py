@@ -15,7 +15,7 @@ from urllib import quote_plus
 from bs4 import BeautifulSoup
 
 
-ANTI_RATE_LIMIT_TIMEOUT = 10
+ANTI_RATE_LIMIT_TIMEOUT = 20
 
 
 def anti_rate_limit_sleep():
@@ -174,9 +174,16 @@ class InstaAPI(object):
 
         Returns a dict where key={s,l,d}, value=hash
         """
-        hashes = re.findall(r'\'/graphql/query/\',E="([a-z0-9]{32})"', text)
+        # sample hash in consumer.js
+        # E="6ff3f5c474a240353993056428fb851e"
+        # e.FEED_QUERY_ID="ab123...[32]"
+        hashes = re.findall(r'FEED_QUERY_ID="([a-z0-9]{32})"', text)
+
+        # old way
+        #hashes = re.findall(r'\'/graphql/query/\',E="([a-z0-9]{32})"', text)
         if not hashes:
             raise ValueError('Hashes not found')
+        print('hashes', hashes)
         return hashes
 
     def _find_preload_query(self, text):
@@ -289,7 +296,7 @@ class InstaAPI(object):
             spit_json(feed, 'feed-first-page.json')
         except Exception as e:
             _log.error('Could not load JSON response (first page)')
-            _log.error(feed)
+            #_log.error(feed)
             return None
 
         try:
