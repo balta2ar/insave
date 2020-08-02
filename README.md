@@ -42,4 +42,4 @@ This is how I run it in cron:
 
 ### Author
 
-(c) 2014-2017 Yuri Bochkarev
+(c) 2014-2020 Yuri Bochkarev
