@@ -14,8 +14,8 @@ from urllib import quote_plus
 
 from bs4 import BeautifulSoup
 
-#LOGLEVEL = logging.INFO
-LOGLEVEL = logging.DEBUG
+LOGLEVEL = logging.INFO
+#LOGLEVEL = logging.DEBUG
 FORMAT = '%(asctime)s %(process)s %(name)s %(levelname)-8s - %(message)s'
 _log = logging.getLogger('insave')
 COOKIES_FILENAME = 'cookies.json'
@@ -23,7 +23,7 @@ COOKIES_FILENAME = 'cookies.json'
 ANTI_RATE_LIMIT_TIMEOUT = 5 # 20
 
 def anti_rate_limit_sleep(reason):
-    _log.info('Sleeping {} (where: {})'.format(ANTI_RATE_LIMIT_TIMEOUT, reason))
+    _log.debug('Sleeping {} (where: {})'.format(ANTI_RATE_LIMIT_TIMEOUT, reason))
     time.sleep(ANTI_RATE_LIMIT_TIMEOUT)
 
 
@@ -73,7 +73,7 @@ def save_cookies(session, filename):
 def load_cookies(filename):
     try:
         result = json.loads(slurp(filename))
-        _log.info('Loaded cookies')
+        _log.debug('Loaded cookies')
         return result
     except:
         return {}
@@ -137,7 +137,7 @@ class InstaAPI(object):
 
         self._query_hash = self._find_query_hash(main_page_again.text)
 
-        _log.info('Login done')
+        _log.debug('Login done')
         return True
 
     def _find_scripts_with_hashes(self, main_page):
