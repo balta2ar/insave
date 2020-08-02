@@ -14,19 +14,23 @@ from urllib import quote_plus
 
 from bs4 import BeautifulSoup
 
-
-ANTI_RATE_LIMIT_TIMEOUT = 20
-
-
-def anti_rate_limit_sleep():
-    time.sleep(ANTI_RATE_LIMIT_TIMEOUT)
-
-
-LOGLEVEL = logging.INFO
-# LOGLEVEL = logging.DEBUG
+#LOGLEVEL = logging.INFO
+LOGLEVEL = logging.DEBUG
 FORMAT = '%(asctime)s %(process)s %(name)s %(levelname)-8s - %(message)s'
 _log = logging.getLogger('insave')
 COOKIES_FILENAME = 'cookies.json'
+
+ANTI_RATE_LIMIT_TIMEOUT = 5 # 20
+
+def anti_rate_limit_sleep(reason):
+    _log.info('Sleeping {} (where: {})'.format(ANTI_RATE_LIMIT_TIMEOUT, reason))
+    time.sleep(ANTI_RATE_LIMIT_TIMEOUT)
+
+
+def is_username_blacklisted(username):
+    with open('blacklist.txt') as file_:
+        lines = set([x.strip() for x in file_.readlines()])
+        return username in lines
 
 
 def enable_requests_debug():
@@ -68,7 +72,9 @@ def save_cookies(session, filename):
 
 def load_cookies(filename):
     try:
-        return json.loads(slurp(filename))
+        result = json.loads(slurp(filename))
+        _log.info('Loaded cookies')
+        return result
     except:
         return {}
 
@@ -109,17 +115,17 @@ class InstaAPI(object):
         }
 
         main_page = self._session.get('https://www.instagram.com/')
-        anti_rate_limit_sleep()
+        anti_rate_limit_sleep('_login')
         csrftoken = main_page.cookies['csrftoken']
         self._update_headers(csrftoken)
 
         login_result = self._session.post(
             'https://www.instagram.com/accounts/login/ajax/',
             data=credentials)
-        anti_rate_limit_sleep()
+        anti_rate_limit_sleep('_login')
         main_page_again = self._session.get('https://www.instagram.com/')
         spit(main_page_again.text, 'main-after-login.html')
-        anti_rate_limit_sleep()
+        anti_rate_limit_sleep('_login')
 
         if not InstaAPI.SHARED_DATA_SUBSTRING in main_page_again.content:
             _log.error('No line with sharedData in main page response (login)')
@@ -131,22 +137,29 @@ class InstaAPI(object):
 
         self._query_hash = self._find_query_hash(main_page_again.text)
 
+        _log.info('Login done')
         return True
 
     def _find_scripts_with_hashes(self, main_page):
         soup = BeautifulSoup(main_page, 'html.parser')
         scripts = soup.find_all('link')
+        # from pudb import set_trace; set_trace()
         scripts = [script.attrs['href'] for script in scripts
                    # if '/static/bundles/metro/ConsumerCommons.js'
                    # if '/static/bundles/es6/ConsumerCommons.js'
                    #if '/static/bundles/es6/ConsumerLibCommons.js'
-                   if '/static/bundles/es6/Consumer.js'
+                   if '/static/bundles/metro/ConsumerLibCommons.js'
+                   #if '/static/bundles/es6/Consumer.js'
+                   #if '/static/bundles/metro/Consumer.js'
                    in script.attrs.get('href', '')]
         return scripts
 
     def _find_query_hash(self, main_page):
-        # query_hash = self._find_preload_query(main_page)
-        # return query_hash
+        # try:
+        #     query_hash = self._find_preload_query(main_page)
+        #     return query_hash
+        # except Exception as e:
+        #     _log.info('Could not find preload query hashes, trying other methods')
 
         scripts = self._find_scripts_with_hashes(main_page)
         if len(scripts) != 1:
@@ -159,7 +172,7 @@ class InstaAPI(object):
         script_url = 'https://www.instagram.com%s' % scripts[0]
         body = self._session.get(script_url).text
         spit(body.encode('utf8'), 'consumer.js')
-        anti_rate_limit_sleep()
+        anti_rate_limit_sleep('_find_query_hash')
         #query_hash = self._find_hashes(body)['s']
         query_hash = self._find_hashes(body)[0]
         return query_hash
@@ -222,7 +235,7 @@ class InstaAPI(object):
                'query_hash=%s&variables=%s' % (self._query_hash, variables))
         _log.debug('graphql url: %s', url)
         reply = self._session.get(url)
-        anti_rate_limit_sleep()
+        anti_rate_limit_sleep('_graphql_query')
         return reply
 
     def _parse_shared_data(self, main_page_content):
@@ -250,7 +263,7 @@ class InstaAPI(object):
 
     def _get_first_page(self):
         main_page = self._session.get('https://www.instagram.com/')
-        anti_rate_limit_sleep()
+        anti_rate_limit_sleep('_get_first_page')
         csrftoken = main_page.cookies['csrftoken']
         self._update_headers(csrftoken)
         spit(main_page.content, 'main.html')
@@ -368,23 +381,45 @@ class InstaAPI(object):
     def _simplify_feed(self, feed, filename):
         spit_json(feed, filename)
         #media = feed['data']['user']['feed_reels_tray']['edge_reels_tray_to_reel']
-        #media = feed['data']['user']['edge_web_feed_timeline']
         media = feed['data']['user']['edge_web_feed_timeline']
         # media = feed['user']['edge_web_feed_timeline']
+        #media = feed['data']['user']['edge_web_feed_timeline']
         end_cursor = media['page_info']['end_cursor']
+        #end_cursor = None
 
-        simple = []
-        for node in media['edges']:
-            node = node['node']
+        def is_valid(source):
+            return 'display_url' in source
+
+        def make_entry(parent, node):
             entry = {
-                'username': node['owner']['username'],
-                'username_id': node['owner']['id'],
-                'date': node['taken_at_timestamp'],
+                'username': parent['owner']['username'],
+                'username_id': parent['owner']['id'],
+                'date': parent['taken_at_timestamp'],
                 'is_video': node['is_video'],
                 'post_id': node['id'],
                 'url': node['display_url'],
             }
-            simple.append(entry)
+            return entry
+
+
+        simple = []
+        for node in media['edges']:
+            node = node['node']
+            simple.append(make_entry(node, node))
+
+            children = node.get('edge_sidecar_to_children', {}).get('edges', [])
+            for child in children:
+                child = child['node']
+                simple.append(make_entry(node, child))
+
+            # items = node['items']
+            # if not items:
+            #     if is_valid(node):
+            #         simple.append(make_entry(node))
+            #     continue
+            # for item in items:
+            #     if is_valid(item):
+            #         simple.append(make_entry(item))
 
         return simple, end_cursor
 
@@ -425,8 +460,8 @@ class InSave(object):
         return '{0}-{1}-{2}-{3}.jpg'.format(
             datetime.fromtimestamp(media['date']).isoformat(),
             media['username'],
+            media['username_id'],
             media['post_id'],
-            media['username_id']
         )
 
         # return '{0}-{1}-{2}.jpg'.format(media.created_time.isoformat(),
@@ -467,6 +502,9 @@ class InSave(object):
                 # if media.type != 'image':
                 if media['is_video']:
                     _log.debug('Skipping non-image')
+                    continue
+                if is_username_blacklisted(media['username']):
+                    _log.debug('Blacklisted username {}'.format(media['username']))
                     continue
                 name = J(path, InSave._name(media))
                 #url = media.get_standard_resolution_url()
@@ -578,6 +616,14 @@ def testweb4():
     main_page_text = open('./20190505/sharedDataLine.txt').read()
     hash = api._parse_shared_data(main_page_text)
     print(hash)
+
+
+def testfirst():
+    from json import loads
+    api = InstaAPI()
+    feed = loads(open('feed-first.json').read())
+    result = api._simplify_feed(feed, 'feed-first.json')
+    print(result)
 
 
 def main():
